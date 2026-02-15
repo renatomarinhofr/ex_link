@@ -12,7 +12,9 @@ defmodule ExLinkWeb.RedirectController do
       nil ->
         conn
         |> put_status(:not_found)
-        |> text("Link não encontrado")
+        |> put_layout(false)
+        |> put_view(ExLinkWeb.ErrorHTML)
+        |> render(:"404", short_code: short_code)
 
       link ->
         Links.increment_clicks(link)
