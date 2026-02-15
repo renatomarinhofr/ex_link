@@ -1,20 +1,27 @@
 defmodule ExLink.LinksFixtures do
   @moduledoc """
-  This module defines test helpers for creating
-  entities via the `ExLink.Links` context.
+  Factory de links para testes.
+  Tipo um createMockLink() no JS.
   """
 
   @doc """
-  Generate a link.
+  Cria um link no banco com dados padrão.
+  Aceita attrs pra sobrescrever qualquer campo.
+
+  ## Exemplos
+
+      link_fixture()                                          # Dados padrão
+      link_fixture(%{original_url: "https://custom.com"})     # URL customizada
   """
   def link_fixture(attrs \\ %{}) do
+    # Gera um short_code único pra cada fixture (evita conflito de unique_constraint)
+    unique_code = "test_#{System.unique_integer([:positive])}"
+
     {:ok, link} =
       attrs
       |> Enum.into(%{
-        clicks: 42,
-        expires_at: ~U[2026-02-14 18:16:00Z],
-        original_url: "some original_url",
-        short_code: "some short_code"
+        original_url: "https://example.com",
+        short_code: unique_code
       })
       |> ExLink.Links.create_link()
 
