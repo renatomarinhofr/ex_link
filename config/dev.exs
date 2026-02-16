@@ -90,3 +90,9 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Google OAuth - Configure with your credentials
+# Get yours at: https://console.cloud.google.com/apis/credentials
+config :ueberauth, Ueberauth.Strategy.Google.OAuth,
+  client_id: System.get_env("GOOGLE_CLIENT_ID") || "placeholder",
+  client_secret: System.get_env("GOOGLE_CLIENT_SECRET") || "placeholder"

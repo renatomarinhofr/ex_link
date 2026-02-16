@@ -5,11 +5,13 @@ defmodule ExLinkWeb.LinkLive.Index do
 
   @impl true
   def mount(_params, _session, socket) do
-    if connected?(socket), do: Links.subscribe()
+    scope = socket.assigns.current_scope
+
+    if connected?(socket), do: Links.subscribe(scope)
 
     socket =
       socket
-      |> assign(:links, Links.list_links())
+      |> assign(:links, Links.list_links(scope))
       |> assign(:form, to_form(Links.change_link(%Links.Link{})))
       |> assign(:copied_id, nil)
 
@@ -18,10 +20,10 @@ defmodule ExLinkWeb.LinkLive.Index do
 
   @impl true
   def handle_info({:link_updated, _link_id}, socket) do
-    {:noreply, assign(socket, :links, Links.list_links())}
+    scope = socket.assigns.current_scope
+    {:noreply, assign(socket, :links, Links.list_links(scope))}
   end
 
-  # Limpa o feedback "Copiado!" depois de 2 segundos
   @impl true
   def handle_info(:clear_copied, socket) do
     {:noreply, assign(socket, :copied_id, nil)}
@@ -32,8 +34,29 @@ defmodule ExLinkWeb.LinkLive.Index do
     ~H"""
     <div class="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950 text-white">
       <%!-- Hero --%>
-      <div class="px-6 pt-20 pb-16">
+      <div class="px-6 pt-12 pb-16">
         <div class="max-w-3xl mx-auto text-center">
+          <%!-- Header com logout --%>
+          <div class="flex items-center justify-between mb-12">
+            <div></div>
+            <div class="flex items-center gap-4">
+              <span class="text-zinc-500 text-sm">{@current_scope.user.email}</span>
+              <a
+                href={~p"/users/settings"}
+                class="text-zinc-400 hover:text-white text-sm transition-colors"
+              >
+                Config
+              </a>
+              <.link
+                href={~p"/users/log-out"}
+                method="delete"
+                class="text-zinc-400 hover:text-red-400 text-sm transition-colors"
+              >
+                Sair
+              </.link>
+            </div>
+          </div>
+
           <h1 class="text-5xl font-extrabold tracking-tight mb-3">
             <span class="text-emerald-400">⚡</span> ExLink
           </h1>
@@ -41,7 +64,7 @@ defmodule ExLinkWeb.LinkLive.Index do
             Encurte URLs em um clique. Acompanhe cliques em tempo real.
           </p>
 
-          <%!-- Form com validação em tempo real (phx-change) --%>
+          <%!-- Form --%>
           <form phx-submit="create_link" phx-change="validate" class="w-full">
             <div class="flex flex-col sm:flex-row gap-3">
               <input
@@ -68,7 +91,6 @@ defmodule ExLinkWeb.LinkLive.Index do
               </button>
             </div>
 
-            <%!-- Erro de validação em tempo real --%>
             <p
               :for={msg <- Enum.map(@form[:original_url].errors, &translate_error/1)}
               class="mt-3 text-red-400 text-sm text-left"
@@ -77,7 +99,7 @@ defmodule ExLinkWeb.LinkLive.Index do
             </p>
           </form>
 
-          <%!-- Link criado com sucesso --%>
+          <%!-- Link criado --%>
           <div
             :if={@flash["short_url"]}
             class="mt-6 bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-4 flex items-center justify-between gap-4"
@@ -115,7 +137,6 @@ defmodule ExLinkWeb.LinkLive.Index do
               class="bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 rounded-xl p-5 transition-all duration-200"
             >
               <div class="flex items-center justify-between gap-4">
-                <%!-- URLs --%>
                 <div class="min-w-0 flex-1 space-y-1">
                   <a
                     href={~p"/#{link.short_code}"}
@@ -129,15 +150,12 @@ defmodule ExLinkWeb.LinkLive.Index do
                   </p>
                 </div>
 
-                <%!-- Actions --%>
                 <div class="flex items-center gap-3 shrink-0">
-                  <%!-- Cliques --%>
                   <div class="bg-zinc-900 rounded-lg px-3 py-1.5 text-center">
                     <p class="text-white font-bold text-lg leading-none">{link.clicks}</p>
                     <p class="text-zinc-500 text-xs mt-0.5">cliques</p>
                   </div>
 
-                  <%!-- Copiar --%>
                   <button
                     phx-click="copy_link"
                     phx-value-short-code={link.short_code}
@@ -155,7 +173,6 @@ defmodule ExLinkWeb.LinkLive.Index do
                     <% end %>
                   </button>
 
-                  <%!-- Deletar --%>
                   <button
                     phx-click="delete_link"
                     phx-value-id={link.id}
@@ -179,8 +196,6 @@ defmodule ExLinkWeb.LinkLive.Index do
 
   # ── Events ──────────────────────────────────────────────
 
-  # Validação em tempo real enquanto digita
-  # phx-change envia a cada keystroke (com debounce de 300ms)
   @impl true
   def handle_event("validate", %{"link" => link_params}, socket) do
     changeset =
@@ -191,16 +206,17 @@ defmodule ExLinkWeb.LinkLive.Index do
     {:noreply, assign(socket, :form, to_form(changeset))}
   end
 
-  # Criar link
   @impl true
   def handle_event("create_link", %{"link" => link_params}, socket) do
-    case Links.create_link(link_params) do
+    scope = socket.assigns.current_scope
+
+    case Links.create_link(scope, link_params) do
       {:ok, link} ->
         short_url = url(~p"/#{link.short_code}")
 
         socket =
           socket
-          |> assign(:links, Links.list_links())
+          |> assign(:links, Links.list_links(scope))
           |> assign(:form, to_form(Links.change_link(%Links.Link{})))
           |> put_flash(:info, "Link criado com sucesso!")
           |> put_flash(:short_url, short_url)
@@ -213,32 +229,29 @@ defmodule ExLinkWeb.LinkLive.Index do
     end
   end
 
-  # Copiar link pro clipboard (via JS hook)
   @impl true
   def handle_event("copy_link", %{"short-code" => short_code, "id" => id}, socket) do
     short_url = url(~p"/#{short_code}")
 
-    # Envia comando JS pro browser copiar pro clipboard
     socket =
       socket
       |> push_event("clipboard:copy", %{text: short_url})
       |> assign(:copied_id, id)
 
-    # Agenda limpar o feedback depois de 2s
     Process.send_after(self(), :clear_copied, 2000)
 
     {:noreply, socket}
   end
 
-  # Deletar link
   @impl true
   def handle_event("delete_link", %{"id" => id}, socket) do
-    link = Links.get_link!(id)
-    {:ok, _} = Links.delete_link(link)
+    scope = socket.assigns.current_scope
+    link = Links.get_link!(scope, id)
+    {:ok, _} = Links.delete_link(scope, link)
 
     socket =
       socket
-      |> assign(:links, Links.list_links())
+      |> assign(:links, Links.list_links(scope))
       |> put_flash(:info, "Link deletado!")
 
     {:noreply, socket}

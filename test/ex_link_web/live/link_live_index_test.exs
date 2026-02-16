@@ -4,6 +4,9 @@ defmodule ExLinkWeb.LinkLive.IndexTest do
   import Phoenix.LiveViewTest
   import ExLink.LinksFixtures
 
+  # Registra e loga um usuário antes de cada teste
+  setup :register_and_log_in_user
+
   describe "Index page" do
     test "mostra título da página", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/")
@@ -18,13 +21,22 @@ defmodule ExLinkWeb.LinkLive.IndexTest do
       assert html =~ "Nenhum link criado ainda"
     end
 
-    test "lista links existentes", %{conn: conn} do
-      link_fixture(%{original_url: "https://elixir-lang.org", short_code: "elixir"})
+    test "lista links do usuário logado", %{conn: conn, scope: scope} do
+      link_fixture(%{scope: scope, original_url: "https://elixir-lang.org", short_code: "elixir"})
 
       {:ok, _view, html} = live(conn, ~p"/")
 
       assert html =~ "elixir"
       assert html =~ "https://elixir-lang.org"
+    end
+
+    test "não lista links de outro usuário", %{conn: conn} do
+      # Cria link com outro usuário (scope padrão da fixture)
+      link_fixture(%{original_url: "https://secreto.com", short_code: "secreto"})
+
+      {:ok, _view, html} = live(conn, ~p"/")
+
+      refute html =~ "https://secreto.com"
     end
 
     test "cria link via formulário", %{conn: conn} do
@@ -35,8 +47,6 @@ defmodule ExLinkWeb.LinkLive.IndexTest do
         |> form("form", link: %{original_url: "https://phoenix.com"})
         |> render_submit()
 
-      # "Link criado!" está no template da LiveView (div de sucesso)
-      # "Link criado com sucesso!" é flash :info e fica no layout (fora do render)
       assert html =~ "Link criado!"
       assert html =~ "https://phoenix.com"
     end
@@ -63,20 +73,16 @@ defmodule ExLinkWeb.LinkLive.IndexTest do
       assert html =~ "must be a valid URL"
     end
 
-    test "deleta um link", %{conn: conn} do
-      link = link_fixture(%{original_url: "https://deletar.com", short_code: "deleta"})
+    test "deleta um link", %{conn: conn, scope: scope} do
+      link = link_fixture(%{scope: scope, original_url: "https://deletar.com", short_code: "deleta"})
 
       {:ok, view, html} = live(conn, ~p"/")
-
-      # Confirma que o link aparece antes
       assert html =~ "https://deletar.com"
 
-      # Clica no botão de deletar
       view
       |> element(~s{button[phx-value-id="#{link.id}"][phx-click="delete_link"]})
       |> render_click()
 
-      # Após deletar, re-renderiza e o link sumiu
       html = render(view)
       refute html =~ "https://deletar.com"
       assert html =~ "0 links"

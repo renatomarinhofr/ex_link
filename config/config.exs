@@ -7,6 +7,19 @@
 # General application configuration
 import Config
 
+config :ex_link, :scopes,
+  user: [
+    default: true,
+    module: ExLink.Accounts.Scope,
+    assign_key: :current_scope,
+    access_path: [:user, :id],
+    schema_key: :user_id,
+    schema_type: :binary_id,
+    schema_table: :users,
+    test_data_fixture: ExLink.AccountsFixtures,
+    test_setup_helper: :register_and_log_in_user
+  ]
+
 config :ex_link,
   ecto_repos: [ExLink.Repo],
   generators: [timestamp_type: :utc_datetime, binary_id: true]
@@ -59,6 +72,16 @@ config :logger, :default_formatter,
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
+
+# Ueberauth (Google OAuth)
+config :ueberauth, Ueberauth,
+  providers: [
+    google: {Ueberauth.Strategy.Google, [default_scope: "email profile"]}
+  ]
+
+# Hammer (Rate Limiting)
+config :hammer,
+  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60, cleanup_interval_ms: 60_000 * 10]}
 
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.

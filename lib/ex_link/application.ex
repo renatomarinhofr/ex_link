@@ -10,6 +10,7 @@ defmodule ExLink.Application do
     children = [
       ExLinkWeb.Telemetry,
       ExLink.Repo,
+      {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60, cleanup_interval_ms: 60_000 * 10]},
       {DNSCluster, query: Application.get_env(:ex_link, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ExLink.PubSub},
       # Start a worker by calling: ExLink.Worker.start_link(arg)

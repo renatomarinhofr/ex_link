@@ -9,17 +9,17 @@ defmodule ExLinkWeb.RedirectControllerTest do
 
       conn = get(conn, ~p"/#{link.short_code}")
 
-      # Verifica que retornou redirect (302)
       assert redirected_to(conn) == "https://elixir-lang.org"
     end
 
     test "incrementa cliques ao redirecionar", %{conn: conn} do
-      link = link_fixture(%{short_code: "clicks1"})
+      scope = scope_fixture()
+      link = link_fixture(%{scope: scope, short_code: "clicks1"})
       assert link.clicks == 0
 
       get(conn, ~p"/#{link.short_code}")
 
-      updated = ExLink.Links.get_link!(link.id)
+      updated = ExLink.Links.get_link!(scope, link.id)
       assert updated.clicks == 1
     end
 

@@ -11,28 +11,24 @@ defmodule ExLink.Links.Link do
     field :clicks, :integer, default: 0
     field :expires_at, :utc_datetime
 
+    # Cada link pertence a um usuário
+    belongs_to :user, ExLink.Accounts.User
+
     timestamps(type: :utc_datetime)
   end
 
   @doc """
   Changeset para criar ou atualizar um link.
-
-  ## Validações
-  - `original_url`: obrigatório, deve ser uma URL válida (http/https)
-  - `short_code`: obrigatório, único, entre 3 e 20 caracteres
-  - `clicks`: default 0
-  - `expires_at`: opcional
   """
   def changeset(link, attrs) do
     link
-    |> cast(attrs, [:original_url, :short_code, :expires_at])
+    |> cast(attrs, [:original_url, :short_code, :expires_at, :user_id])
     |> validate_required([:original_url, :short_code])
     |> validate_url(:original_url)
     |> validate_length(:short_code, min: 3, max: 20)
     |> unique_constraint(:short_code)
   end
 
-  # Validação customizada de URL
   defp validate_url(changeset, field) do
     validate_change(changeset, field, fn _, value ->
       uri = URI.parse(value)
